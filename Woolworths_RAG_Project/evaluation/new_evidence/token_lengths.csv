@@ -1,0 +1,11 @@
+chunk_id,tokens_before_truncation,truncated
+chunk_001,647,True
+chunk_002,570,True
+chunk_003,531,True
+chunk_004,614,True
+chunk_005,604,True
+chunk_006,737,True
+chunk_007,1054,True
+chunk_008,951,True
+chunk_009,1400,True
+chunk_010,202,False

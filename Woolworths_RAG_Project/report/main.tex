@@ -1,0 +1,325 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=23mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype,booktabs,tabularx,longtable,array,amsmath,enumitem,xcolor,fancyhdr}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Group 59: Combined Woolworths RAG Report},pdfauthor={Group 59}}
+\definecolor{forest}{HTML}{245342}
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries\color{forest}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.7em}{}
+\setlength{\parindent}{0pt}\setlength{\parskip}{6pt}
+\setlist{nosep,leftmargin=*}
+\renewcommand{\arraystretch}{1.17}
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small Group 59 | Woolworths FY25 Report Q\&A}\fancyhead[R]{\small WIL Written Report}\fancyfoot[C]{\thepage}
+\setlength{\headheight}{14pt}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\begin{document}
+\begin{titlepage}
+\vspace*{22mm}
+{\color{forest}\Large RMIT UNIVERSITY\par}
+\vspace{10mm}
+{\huge\bfseries Test-Driven Retrieval-Augmented Generation\par}
+\vspace{6mm}
+{\LARGE Woolworths FY25 Report Q\&A\par}
+\vspace{7mm}
+{\large WIL Project: Written Report\par Group 59\par 25 October 2026\par}
+\vspace{15mm}
+\textbf{Decision focus}\par
+Can a small, source-grounded financial-report assistant help investors and analysts locate and verify reported figures?\par
+\vspace{8mm}
+\textbf{Evidence basis}\par
+A reproducible 40-question diagnostic benchmark, measured keyword/dense/hybrid retrieval comparisons, controlled ablation and source-checked reference answers.\par
+
+
+\vfill
+\textbf{Project repository}\par
+\url{https://github.com/s4097104/Data-Science-Assignment}\par
+\textbf{Project board}\par
+\href{https://trello.com/b/8Gf3ZILx/wil-project-group-59}{Group 59 Trello board}
+\end{titlepage}
+
+\section*{Executive summary}
+Investors and analysts need financial answers that preserve the correct year, unit, accounting basis and supporting source. Group 59's prototype combines evidence retrieval with a locally hosted language model to support that task. This report strengthens the evaluation with an executed, reproducible comparison of keyword, dense and hybrid retrieval on the supplied Woolworths FY25 Five Year Summary.
+
+The new diagnostic benchmark contains 40 questions: 12 direct facts, eight paraphrases, eight comparisons, four ambiguous requests and eight unsupported requests. Retrieval metrics use only the 28 answerable questions. With the same ten source passages and passage-level relevance labels, BM25 finds relevant evidence in its top five for 27/28 questions, dense retrieval for 28/28 and hybrid retrieval for 27/28. NDCG@5 is 0.760, 0.931 and 0.871 respectively. Dense ranks relevant evidence first for 24/28 questions, compared with BM25's 17/28. These results demonstrate improved evidence ranking on this benchmark, not generated-answer correctness or general performance across financial reports.
+
+A controlled BM25 ablation shows that removing passage-length normalisation lowers NDCG@5 from 0.760 to 0.668. An unsupported-question test finds that all eight unsupported requests still receive positive keyword scores, demonstrating why a simple zero-score refusal rule is inadequate. Token-length inspection also finds that nine of ten passages exceed the embedding model's 512-token limit.
+
+The practical recommendation is to prefer dense retrieval as the current pilot baseline, retain human verification and prioritise table-aware passages and generated-answer validation. The 40-question set was authored with knowledge of the source and includes correlated paraphrases; labels are AI-assisted and still require independent human adjudication. No local language-model answers or user timings were generated in this evaluation. Earlier team-reported larger-corpus scores are retained only as historical context, not as evidence for the new comparison.
+
+\section{Problem definition and achieved aims}
+\subsection{Business problem and stakeholders}
+The primary stakeholders are retail investors checking company disclosures and analysts preparing comparable financial summaries. Their practical task is to find an attributable answer efficiently, not merely obtain fluent text. For example, a question about ``profit'' can refer to reported profit after tax or profit before significant items; treating them as interchangeable changes the conclusion. Likewise, total net debt includes lease liabilities whereas another debt measure in the same table excludes them \cite{summary}.
+
+The proposed value is reduced effort in locating evidence, improved visibility of financial definitions and easier verification through page references. The prototype is a document-navigation and explanation aid. It does not establish the suitability of an investment or predict future performance. No affiliation with Woolworths is implied.
+
+\subsection{Research questions}
+\begin{enumerate}
+\item \textbf{RQ1: Evidence access.} How effectively does the baseline retrieve the evidence needed for direct, comparison and explanatory financial questions?
+\item \textbf{RQ2: Retrieval design.} Does combining keyword and semantic retrieval improve evidence ranking compared with either method alone?
+\item \textbf{RQ3: Answer trustworthiness.} Can the complete system provide numerically correct, supported answers with valid source references and abstain when evidence is insufficient?
+\item \textbf{RQ4: Stakeholder value.} Does the tool reduce time to a verified answer without increasing factual errors relative to manual PDF search?
+\end{enumerate}
+RQ1 and RQ2 are addressed by the new controlled retrieval experiment. RQ3 has a source-checked answer key and behavioural tests ready for generated-answer scoring, but no measured LLM accuracy. RQ4 remains unmeasured. The report distinguishes completed experiments from these remaining validation stages.
+
+\subsection{Scope and relationship to Milestone 1}
+Milestone 1 proposed questions over Woolworths' FY2025 Annual Report and described early Walert retrieval work \cite{milestone}. The financial-summary prototype narrows this scope to a small, easily checked source. The 24 October draft describes an annual-report experiment closer to the original ambition \cite{vijay}. These are treated as separate configurations; the supplied records do not establish their exact implementation chronology or demonstrate that the larger configuration replaced the smaller one.
+
+The summary configuration covers revenue, profit, debt, cash flow, shareholder measures and selected ratios in the nine-page summary. The separate larger experiment reports an 89-page source, but its exact PDF version and page-number mapping require confirmation. Neither configuration establishes access to live prices, later financial periods or facts absent from its corpus. A page number is meaningful only when paired with its source document.
+
+The smaller scope supports tractable manual checking, while the larger scope tests retrieval in a more demanding setting. This is a practical explanation of their complementary value, rather than a claim that a dated team decision approved that progression. All worked financial examples in this report are grounded in the supplied summary.
+
+\section{Methodology}
+\subsection{Data and provenance}
+The source PDF is publicly issued company financial information \cite{summary}. The supplied \texttt{chunks.csv} contains ten uniquely identified passages spanning all nine pages; page 2 is split into a financial table and explanatory notes. Passage sizes range from 153 to 939 whitespace-separated words. Each record retains a chunk identifier, source name, page and text. The supplied cleaned financial CSV is not read by the RAG pipeline: retrieval operates on \texttt{chunks.csv}.
+
+This distinction matters because the presence of a structured data file does not imply that the model uses a reliable table lookup. PDF extraction can merge superscript footnotes with years and split numbers: the extracted New Zealand Food row contains ``7, 24 0'' for 2023, whereas the PDF shows 7,240. The current analysis therefore uses the original PDF as the reference for numerical interpretation and treats extracted text as a derived artifact. An ingestion script and extraction history were not supplied; exact reconstruction of the initial extraction cannot be claimed.
+
+The audit package records SHA-256 hashes of the PDF, chunks, questions and BM25 implementation, alongside the Python environment. This links results to an exact input snapshot. Future revisions should retain year, unit, accounting basis, table heading and footnote links in each passage, and rebuild embeddings whenever passage content or order changes.
+
+\subsection{Evaluation scope and historical configurations}
+The main experiment fixes the corpus at the supplied nine-page summary and ten passages. This allows all retrieval methods to use the same question strings and relevance labels. The earlier 18-question audit provides historical diagnostic context; its 94.4\% page-hit result is not directly compared with the new 40-question benchmark because the questions and judgment scheme differ.
+
+The 24 October team draft separately describes an 89-page document, 494 chunks and ten questions \cite{vijay}. Those results are not pooled with the new experiment. Its exact document, output logs and three referenced screenshots were absent from the submitted archive. The consolidated report therefore uses the smaller corpus for verified findings, while preserving the larger configuration as a separately reported exploratory attempt.
+
+\subsection{Retrieval and generation design}
+\textbf{Keyword retrieval.} The supplied BM25 implementation lowercases text and extracts alphanumeric tokens. It rewards informative query terms while moderating repeated terms and passage-length effects. Parameters are $k_1=1.5$ and $b=0.75$; the default output is five passages. This inexpensive, interpretable baseline is appropriate for exact financial labels. It does not explicitly resolve synonyms, numerical relationships or ambiguous accounting concepts.
+
+\textbf{Semantic retrieval.} The code specifies \texttt{multi-qa-MiniLM-L6-cos-v1}. Its model card describes 384-dimensional embeddings for semantic search, with a 512-wordpiece input limit \cite{minilm}. The implementation normalises document and question vectors and ranks their dot products, equivalent to cosine similarity for unit vectors. Token lengths were measured before truncation: nine of ten passages exceed 512 tokens, with a range of 202--1,400 tokens. Truncation can omit later financial rows or notes even when the full passage is displayed to users. For the new experiment, the published ONNX model was downloaded and executed on CPU. Attention-mask mean pooling followed by L2 normalisation produces 384-dimensional vectors. A 512-token cap matches the model's sentence-transformer configuration. The ONNX runtime is a separate evaluation harness, not proof that the original website was executed end to end. Model-file hashes and runtime versions are supplied.
+
+\textbf{Hybrid ranking.} Reciprocal rank fusion combines the top five BM25 and dense candidates using equal weights:
+\begin{equation}
+S(c)=\frac{0.5}{60+r_B(c)}+\frac{0.5}{60+r_D(c)}.
+\end{equation}
+A missing candidate contributes zero for that list. Ranking positions are combined rather than incomparable raw scores. This offers a plausible balance between exact terminology and semantic matching; the experiment below tests whether it improves ranking. Because each input list is truncated to five, fusion cannot recover a passage absent from both candidate lists.
+
+\textbf{Answer generation.} The pipeline sends the question and fused passages to the local Ollama endpoint, with model tag \texttt{llama3.2}, temperature zero and a 180-second request timeout. The prompt instructs the model to use supplied context, avoid invented figures, mention pages and state when context is insufficient. These instructions are safeguards, not guarantees. There is no independent numerical validator, citation verifier or explicit retrieval abstention threshold. Temperature zero also does not remove the need to record model version and runtime details.
+
+\textbf{Interface.} The Streamlit app provides a question box, example questions, answer display, expandable evidence and separate keyword/semantic retrieval views. This supports inspection. However, the sidebar's source-count slider is not passed to the cached pipeline, which is constructed with five sources. Source code also assigns to the question widget's session state after creating that widget when Clear is clicked; this should be tested against the chosen Streamlit version. These observations come from code inspection, not a successful browser demonstration.
+
+\subsection{Benchmark construction and evaluation controls}
+Walert motivates evaluating evidence retrieval and conversational answers separately \cite{walertrepo,walertproject}. The new benchmark implements that separation. Its 40 records contain a stable question ID, question type, answerability label, source-checked reference answer, relevant chunk IDs, expected behaviour and topic group. Twelve questions ask direct facts, eight paraphrase factual requests and eight require comparisons or calculations. Four deliberately ambiguous questions and eight unsupported questions are excluded from retrieval denominators and reserved for behaviour assessment.
+
+The reference answers preserve units, dates and accounting bases. For instance, reported EBIT is distinguished from EBIT before significant items; total net debt is distinguished from debt excluding leases. Seven arithmetic checks independently verify changes in EBIT, revenue, debt, cash flow, dividends, EPS and reported profit. These are checks of the answer key, not scores for language-model responses.
+
+Question definitions and retrieval settings were written before executing the new comparison. However, the source and original question set had already been inspected, and the new questions include related factual/paraphrase pairs. This is an AI-assisted retrospective diagnostic set, not a blind held-out benchmark or independent human evaluation. All labels require a second reviewer; no inter-rater agreement is claimed. A subsequent holdout must separate topic groups, so paraphrases of the same fact cannot appear on both sides of the split.
+
+All main methods use identical passages, questions, binary passage judgments and cut-offs of one, three and five. BM25 uses $k_1=1.5$, $b=0.75$; dense uses the specified MiniLM model; hybrid combines their top-five rankings with equal-weight RRF and constant 60. Score ties are resolved by original corpus order in the harness. No method is tuned after seeing the new scores.
+
+Two supplementary lexical controls are also run: TF-IDF word unigrams/bigrams with cosine similarity, and RRF over BM25 and TF-IDF. The latter is labelled lexical fusion, not semantic hybrid retrieval. The controlled ablation changes only BM25's $b$ from 0.75 to zero, testing whether length normalisation helps. All rankings and per-question results are exported; unexpected declines are retained rather than omitted.
+
+\subsection{Metrics and correction of the starter evaluator}
+For question $q$, let $R_q$ be all relevant passages in the corpus, $L_q^5$ the five retrieved passages, and $r_q$ the first relevant rank. Hit@5 records whether any relevant passage is found; Recall@5 records $|R_q\cap L_q^5|/|R_q|$. MRR@5 averages $1/r_q$, or zero if no relevant passage appears. NDCG@5 rewards relevant evidence appearing earlier:
+\begin{equation}
+\mathrm{DCG@5}=\sum_{i=1}^{5}\frac{rel_i}{\log_2(i+1)},\qquad
+\mathrm{NDCG@5}=\frac{\mathrm{DCG@5}}{\sum_{i=1}^{\min(5,|R_q|)}1/\log_2(i+1)}.
+\end{equation}
+The supplied evaluator builds its ideal ranking from only retrieved labels. This can overstate quality when relevant passages are missing. For example, one relevant passage at rank one receives 1.000 under that approach even if two relevant passages exist. The corrected score is $1/(1+1/\log_2 3)=0.613$. A regression check in the audit script verifies this case. This report uses the corrected denominator; it does not silently replace the original application evaluator.
+
+\begin{table}[htbp]\centering\small
+\caption{End-to-end evaluation protocol. These measures are specified, not yet measured.}
+\begin{tabularx}{\textwidth}{p{30mm}Y Y}\toprule
+Dimension & Operational measure & Evaluation control\\\midrule
+Answer correctness & Correct responses / answerable questions; exact year, value, unit and accounting basis required & Gold answers checked against PDF; derived values checked with deterministic arithmetic\\
+Unanswered rate & Abstentions / all questions; also report false abstentions on answerable questions & Separate unsupported questions from retrieval failures\\
+Abstention quality & Correct refusals / unsupported questions & Add absent-period, live-price and absent-topic questions\\
+Faithfulness & Supported factual claims / all factual claims & Human claim-level review; no credit for plausible but unsupported facts\\
+Attribution & Supported cited claims / cited claims; plus fraction of factual claims with support & Check actual cited passage, not merely a valid page number\\
+Usability and efficiency & Correct task completion; median and 90th-percentile time to verified answer & Counterbalanced manual-search versus RAG study; include checking time\\\bottomrule
+\end{tabularx}
+\end{table}
+
+For reconciliation and subsequent experiments, two team members should independently annotate reference answers and relevance, resolve disagreements and preserve both original and adjudicated labels. For the next iteration, freeze a development split before tuning and add a separately authored holdout covering paraphrases, comparisons, ambiguity and unsupported requests. Evaluate BM25, dense and hybrid with identical inputs, model, prompt and cut-off. Use paired question-level comparisons and disclose uncertainty; do not infer significance from a single inference question. Human-reviewed correctness should take precedence over an unvalidated language-model judge.
+
+\subsection{Unsupported and ambiguous behaviour tests}
+The eight unsupported prompts ask for information outside the source, including live prices, later results and individual-store sales. The four ambiguous prompts concern profit, debt, dividends and EBIT. Their reference behaviours specify refusal or clarification; they do not have invented gold evidence. A diagnostic zero-overlap rule is evaluated for BM25 and TF-IDF: refuse only if the maximum retrieval score is zero. This tests a retrieval gate, not LLM abstention.
+
+Generated-answer correctness, faithfulness, citations and clarification remain unscored because no LLM responses were produced. The package provides a scoring template and a standalone runner for the team's Ollama environment. Its results must not be represented as completed until actual outputs have been produced and reviewed. This preserves a clear boundary between executable evaluation infrastructure and observed results.
+
+\section{Findings}
+\subsection{Controlled comparison on 28 answerable questions}
+\begin{table}[htbp]\centering\small
+\caption{New benchmark results. All methods use the same 28 answerable questions and ten passages.}
+\begin{tabular}{lrrrrr}\toprule
+Method & Hit@1 & Hit@5 & Recall@5 & MRR@5 & NDCG@5\\\midrule
+BM25 &17/28&27/28&0.929&0.727&0.760\\
+Dense (ONNX) &24/28&28/28&0.982&0.917&0.931\\
+Hybrid BM25+dense &21/28&27/28&0.964&0.845&0.871\\\bottomrule
+\end{tabular}
+\end{table}
+Dense achieves the best observed ranking on this benchmark. Its NDCG@5 exceeds BM25 by 0.171 and hybrid by 0.060. Relative to BM25, dense improves per-question NDCG for 13 questions, ties for 14 and declines for one; hybrid improves for 12, ties for 14 and declines for two. These paired counts expose uneven gains. The small, correlated diagnostic set does not support a population-level significance claim.
+
+Dense's 28/28 Hit@5 does not imply perfect evidence recovery: Recall@5 is 0.982 because one alternative relevant passage is missed. Nor does it imply 100\% answer correctness. Retrieving five of ten passages is a generous cut-off, so top-one and top-three results matter. At $k=3$, BM25 succeeds on 21/28 questions, dense on 28/28 and hybrid on 27/28. Dense therefore provides useful evidence with a smaller context budget in this test, although latency and answer quality were not measured.
+
+\subsection{Paraphrases and supplementary baselines}
+BM25's NDCG@5 is 0.824 for 12 direct questions, 0.610 for eight paraphrases and 0.813 for eight comparison questions. Its lower paraphrase performance illustrates the limits of exact terminology. Comparison questions still require a generator or calculator to interpret the evidence; retrieving their tables does not prove correct arithmetic.
+
+TF-IDF achieves Hit@5 of 25/28 and NDCG@5 of 0.695. Lexical fusion achieves 27/28 and 0.718. These controls provide no evidence that combining two lexical rankings improves on BM25. Likewise, the main hybrid does not outperform dense alone. Complexity is justified only when measured benefits outweigh costs; the current result favours dense as the pilot's retrieval baseline.
+
+\subsection{Executed ablation: passage-length normalisation}
+The hypothesis was that financial passages might benefit from changing the penalty applied to long chunks. The test changes only $b$ from 0.75 to zero. Hit@5 remains 27/28, but Hit@1 drops from 17/28 to 12/28, MRR@5 from 0.727 to 0.601 and NDCG@5 from 0.760 to 0.668. One question improves in NDCG, 18 tie and nine decline.
+
+This unsuccessful change is informative: top-five coverage alone would conceal the damage to ranking. Retaining the original length correction is the evidence-based decision. The experiment documents a real hypothesis--test--decision cycle conducted during this revision, not a claim about an earlier team sprint.
+
+\subsection{Failure cases and source fidelity}
+\textbf{Operating-profit paraphrase (T17).} The question asks for Group operating profit after significant items. BM25 misses the gold passage within five results. Dense ranks the page-1 table first; hybrid ranks it third. The accepted reference answer is reported EBIT of AUD 2,185 million, distinct from AUD 2,754 million before significant items \cite{summary}. This is an observed retrieval repair; no generated response is claimed.
+
+\textbf{Long financial passages.} Before truncation, passage token lengths are 647, 570, 531, 614, 604, 737, 1,054, 951, 1,400 and 202. Nine exceed the 512-token cap. A passage can rank well while its later facts were not represented in the embedding. This motivates a further table-aware chunking experiment, which has not yet been executed. Preserve row labels, year, units and footnote links rather than splitting solely by word count.
+
+\textbf{Unsupported prompts.} All eight unsupported questions receive positive BM25 and TF-IDF scores, so the zero-overlap gate rejects 0/8. Familiar words such as ``revenue'' and ``Woolworths'' can match a historical report even when a requested year or entity is absent. This is not a measured LLM hallucination rate. It establishes that positive similarity cannot establish answerability.
+
+\textbf{Financial qualifications.} Total net debt is presented as AUD (15,989) million including leases, versus AUD (4,115) million excluding leases and including derivatives. Total dividend is 84 cents per share or AUD 1,026 million; 2024's total includes a special dividend. Correct answers must retain these qualifications. Seven numerical comparison references were verified by deterministic arithmetic, including the AUD 469 million EBIT decline and AUD 485 million increase in total net-debt magnitude.
+
+\subsection{Historical results and limits of verification}
+The original 18-question page-proxy audit remains reproducible: BM25 Hit@5 is 17/18 and corrected NDCG@5 is 0.760. Its near-identical rounded NDCG to the new benchmark is coincidental; the questions and relevance labels differ.
+
+The team's separate larger-corpus draft reports Hit@5 of 0.700, 0.900 and 0.800 for BM25, dense and hybrid, plus 70\% answer correctness and 40\% citation correctness \cite{vijay}. These values are not used to establish the new findings. Its eight-answerable/two-unsupported description conflicts with its later all-answerable wording, and the raw outputs are absent. With eight answerable questions, binary Hit@5 would change in 12.5\% increments; the reported increments therefore require denominator verification. Missing logs and screenshots cannot be replaced by inferred results.
+
+The completed new evaluation establishes comparative retrieval performance, an unsuccessful ablation, a failed zero-overlap gate and a reproducible answer key. Generated-answer accuracy, human agreement, end-to-end UI behaviour and business time savings remain unmeasured.
+
+\section{Impact and significance of results}
+\subsection{Value demonstrated and value still to validate}
+The verified contribution is a reproducible way to expose retrieval failures before trusting generated financial answers. For a decision maker, this reduces uncertainty about where further engineering effort is needed: ranking the right table and preserving definitions are higher priorities than polishing answer fluency. The interface's evidence panels offer a practical verification mechanism, although their actual effect on users has not been measured.
+
+A supervised analyst pilot is justified as a learning investment. Production release or a claim of financial decision improvement is not yet justified. Dense repairs an important operating-profit retrieval failure, but this does not establish that the answer generator uses the evidence correctly. The new unsupported-question result adds a second concern: a plausible retrieval match can still lack the requested answer. A small number of high-impact errors can outweigh convenience benefits.
+
+\subsection{Business-value measurement}
+A suitable next study would recruit a small pilot group of investors or finance students, report their relevant experience, and counterbalance task order between manual PDF search and the assistant. Use matched but different tasks to reduce memorisation, record both correctness and verification time, and include difficult and unsupported questions. Report individual paired differences and uncertainty rather than only an overall average. Such a convenience sample would inform usability, not establish industry-wide benefit.
+
+For planning, annual net benefit can be expressed as $Q\Delta t C/60-C_{run}-C_{maint}$, where $Q$ is annual task volume, $\Delta t$ verified minutes saved per task and $C$ hourly labour cost. No values are assigned because none were measured. Local generation avoids a per-request hosted-model charge but still incurs equipment, energy, maintenance and verification costs.
+
+\subsection{Ethical, social and professional considerations}
+Public financial information reduces personal-data exposure in the corpus, but user questions may reveal investment interests. Any deployed version should minimise retained queries and explain logging and access arrangements. The present local endpoint does not by itself establish the privacy of a future hosted deployment.
+
+Financial misinformation is the main practical risk. The tool should clearly distinguish historical reporting from current information, preserve source dates and identify accounting assumptions. It should not turn missing evidence into confident recommendations. Company disclosures also reflect one organisation's reporting perspective; absence of a topic from this small corpus is not evidence that no issue exists.
+
+Access should be assessed across users with different financial literacy and language proficiency. Proposed checks include plain-language versus technical paraphrases, keyboard navigation, readable contrast and screen-reader labels. These are evaluation commitments, not completed accessibility or fairness certifications. Professional practice also requires traceable evidence, reproducible experiments, honest limitations and review of data/model terms before redistribution. The source's accounting notes reference AASB 8 in explaining segment changes; that is source context, not a claim that this software has accounting-standard certification.
+
+\section{Project management and iterative process}
+\subsection{Team organisation and reported development cycles}
+Milestone 1 identifies a Trello board and GitHub repository and describes a planned progression through data preparation, retrieval, local generation and evaluation \cite{milestone}. The 24 October draft allocates evaluation design and coordination to Vijaypal, retrieval and generation integration to Raj, and data preparation, chunking and results visualisation to William \cite{vijay}. These are stated functional roles, not verified percentages of individual contribution; final membership and responsibilities should agree with the team's separate contribution record.
+
+The draft describes four development cycles: extracting the larger PDF into 494 chunks; implementing keyword, dense and hybrid retrieval; integrating Llama 3.2 3B and adjusting the prompt after false refusals; and running evaluation. This is a useful account of intended iterative working. However, no dated task export, commit sequence or meeting notes accompany it, so it does not establish when each cycle occurred or that acceptance tests preceded implementation.
+
+The previous milestone feedback specifically requested public repository access, a mentor invitation to Trello and weekly check-ins. Those are operational requirements, not issues that revised prose can resolve. The final project record should connect actual meetings and feedback to subsequent decisions, and link tasks to commits and result files. The supplied GitHub address was inspected during this revision. Its main-branch archive contains a retail-customer-churn dataset and script, not the RAG artifacts. The team must upload the RAG code and evaluation package to the correct repository; a reachable link alone does not establish submission completeness. Mentor board access was not checked.
+
+\subsection{Iteration driven by observed failures}
+\begin{table}[htbp]\centering\small
+\caption{Evidence-based iteration record and next actions. Proposed actions are not claimed as completed.}
+\begin{tabularx}{\textwidth}{p{30mm}Y Y}\toprule
+Observation & Learning & Next action / acceptance evidence\\\midrule
+Page equality is an incomplete relevance proxy & A page can contain both a table and unrelated notes & Independently adjudicate passage judgments and reference answers\\
+Ideal DCG used only retrieved labels & Metric code can hide missing evidence & Audit evaluator uses corpus-wide ideal ranking; regression check supplied\\
+Q06 misses required table & Term overlap is insufficient for reliable numerical QA & Try table-aware passages; rerun fixed tests and new holdout\\
+Large passages mix tables and footnotes & Context quality may be lost before generation & Measure tokenizer lengths; keep units and linked notes when splitting\\
+Source-count slider is disconnected & Visible controls can misrepresent actual settings & Pass selected value to pipeline; test observed context count\\
+Embedding builder assumes output directory exists & Setup depends on execution order & Create directory explicitly and test a clean installation\\\bottomrule
+\end{tabularx}
+\end{table}
+
+A lean next cycle should attach each issue to a measurable acceptance criterion, implement one change at a time and retain both failed and successful results. Keep model, prompt and question set fixed when isolating retrieval changes. A definition of done should require reproducible execution, independent answer checking and evidence in the repository, rather than only a visually complete demo. The revised backlog is: independently adjudicate the new labels; test table-aware chunking; execute and score generated answers; then measure user value. The unsupported and ambiguous prompts are now included, and the retrieval comparison has been executed.
+
+\subsection{Methodological reflection}
+The central lesson from the audit is that evaluation quality can constrain progress as much as model quality. High page-hit rates conceal low-ranked evidence, duplicated notes and accounting ambiguity. More sophisticated retrieval cannot repair a mislabeled test set by itself. Equally, a concise corpus makes verification feasible but can inflate retrieval success because five results cover half the available passages. Future work should improve the benchmark before enlarging the corpus, and preserve unsuccessful experiments so the team can explain why a change helped or failed. Personal first-person reflections are not inferred from repository artifacts and remain for each member to write.
+
+\section{Conclusion}
+The executed diagnostic evaluation provides a stronger basis for retrieval selection: on the fixed corpus and 28 answerable questions, dense retrieval outperforms BM25 and equal-weight hybrid ranking. The BM25 ablation demonstrates the benefit of retaining length normalisation, and the unsupported-question test shows why a zero-overlap gate is inadequate. These are reproducible findings with raw outputs and source-checked references.
+
+The recommended pilot uses dense retrieval with source verification, while preserving explicit uncertainty around unsupported and ambiguous requests. The next release gate is generated-answer validation and independent review of benchmark labels. Claims of business efficiency or reliable financial advice must await user measurements and end-to-end assessment.
+
+\begin{thebibliography}{9}
+\bibitem{summary} Woolworths Group Limited. (2025). \textit{2025 Five Year Summary}. Nine-page source PDF supplied with the project as \texttt{F25\_Five\_Year\_Summary.pdf}. Financial tables and notes, pp. 1--9.
+\bibitem{milestone} Group 59. (2026). \textit{WIL Project --- Milestone 1 Report: Woolworths FY25 Report Q\&A (RAG)}. Supplied course project report, two pages.
+\bibitem{prototype} Group 59 project materials. (Supplied 2026). \textit{Woolworths RAG User Friendly Website}. Submitted ZIP containing Streamlit app, retrieval/generation code, source PDF, chunks and evaluation questions. The implementation inspected for this report; authorship allocation requires team confirmation.
+\bibitem{walertrepo} RMIT Information Retrieval Group. \textit{Walert: Code and data for the Walert large language model-based chatbot}. \url{https://github.com/rmit-ir/walert}. Accessed 23 October 2026.
+\bibitem{walertproject} Spina, D. \textit{Walert --- Your Open Day FAQ Buddy}. Project description. \url{https://www.damianospina.com/project/walert/}. Accessed 23 October 2026.
+\bibitem{vijay} Group 59. (24 October 2026). \textit{WIL Project: Written Report}. Team draft supplied as \texttt{vijayWA+24\_10(1).zip}. Larger-corpus configuration, reported metrics and development narrative; referenced image files and raw evaluation logs were not included.
+\bibitem{minilm} Sentence Transformers. \textit{multi-qa-MiniLM-L6-cos-v1: Model card}. \url{https://huggingface.co/sentence-transformers/multi-qa-MiniLM-L6-cos-v1}. Accessed 23 October 2026.
+\end{thebibliography}
+
+\appendix
+\section{Repository, reproducibility and audit trail}
+\textbf{Project artifacts:} \url{https://github.com/s4097104/Data-Science-Assignment}. This is the latest repository address supplied by the team; public visibility, assessor access and upload of supporting artifacts require confirmation.
+
+\textbf{Project board:} \href{https://trello.com/b/8Gf3ZILx/wil-project-group-59}{Group 59 Trello board}. Board activity is not independently verified here.
+
+\textbf{Implementation examined:} the supplied project archive \cite{prototype}. The package contains \texttt{evaluate.py}, \texttt{evaluate\_dense.py}, a 40-question benchmark, raw rankings, per-question metrics, token counts, input/model hashes and arithmetic checks. Original audit evidence is preserved separately. Run the audit using Python's standard library:
+\begin{quote}\small\ttfamily
+python evaluate.py\\
+python evaluate\_dense.py /path/to/model\_directory
+\end{quote}
+The scripts write to \texttt{new\_evidence}. Dense evaluation requires the documented ONNX/tokenizer files. The evaluation harness does not modify the original website or run its generator. Exact model-file hashes and runtime versions are retained; the model weights are not bundled in the Overleaf ZIP.
+
+\section{Question-level evidence on the new benchmark}
+\begin{longtable}{llrrr}
+\caption{First relevant rank within five on the 28 answerable questions. Full question text and reference answers are in benchmark.csv; a dash denotes no hit.}\\
+\toprule ID & Type & BM25 & Dense & Hybrid\\\midrule\endfirsthead
+\toprule ID & Type & BM25 & Dense & Hybrid\\\midrule\endhead
+T01 & Direct & 1 & 1 & 1\\
+T02 & Direct & 2 & 1 & 1\\
+T03 & Direct & 2 & 1 & 1\\
+T04 & Direct & 1 & 1 & 1\\
+T05 & Direct & 2 & 1 & 1\\
+T06 & Direct & 5 & 1 & 2\\
+T07 & Direct & 1 & 1 & 1\\
+T08 & Direct & 1 & 1 & 1\\
+T09 & Direct & 1 & 1 & 1\\
+T10 & Direct & 1 & 1 & 1\\
+T11 & Direct & 1 & 1 & 1\\
+T12 & Direct & 1 & 1 & 1\\
+T13 & Paraphrase & 1 & 1 & 1\\
+T14 & Paraphrase & 4 & 1 & 2\\
+T15 & Paraphrase & 4 & 1 & 2\\
+T16 & Paraphrase & 1 & 1 & 1\\
+T17 & Paraphrase & -- & 1 & 3\\
+T18 & Paraphrase & 2 & 1 & 1\\
+T19 & Paraphrase & 1 & 1 & 1\\
+T20 & Paraphrase & 5 & 2 & 1\\
+T21 & Comparison & 4 & 3 & --\\
+T22 & Comparison & 1 & 1 & 1\\
+T23 & Comparison & 5 & 2 & 3\\
+T24 & Comparison & 1 & 1 & 1\\
+T25 & Comparison & 1 & 1 & 1\\
+T26 & Comparison & 1 & 1 & 1\\
+T27 & Comparison & 1 & 3 & 2\\
+T28 & Comparison & 1 & 1 & 1\\
+\bottomrule\end{longtable}
+The four ambiguous questions (T29--T32) and eight unsupported questions (T33--T40) are deliberately excluded from this table's answerable retrieval population. Their expected behaviours are provided in the benchmark, but no model responses have been scored.
+
+\section{Reference-answer and regression examples}
+\begingroup\small\renewcommand{\arraystretch}{1.05}
+These source-checked examples retain the original audit's Q identifiers for traceability. The new benchmark uses T identifiers and supplies its complete reference-answer set separately. These examples are not model responses.
+\begin{longtable}{p{15mm}p{119mm}}
+\caption{Selected financial answer checks, based on the source PDF.}\\
+\toprule ID & Required content and interpretation\\\midrule\endfirsthead
+\toprule ID & Required content and interpretation\\\midrule\endhead
+Q01 & Group revenue is \$69,077 million for 2025 (p. 1); distinguish revenue from profit.\\
+Q06 & Reported Group EBIT is \$2,185 million; EBIT before significant items is \$2,754 million (p. 1). State the basis or clarify ambiguity.\\
+Q07 & Profit attributable to equity holders after tax is \$963 million (p. 2), not \$1,385 million before significant items.\\
+Q08--09 & Total dividend is 84 cents per share / \$1,026 million; final dividend is 45 cents per share (p. 6). Do not confuse declared dividends with cash-flow dividends paid.\\
+Q11 & \$2,754m versus \$3,223m; decrease \$469m, approximately 14.6\%. Disclose 52 versus 53 reporting weeks (p. 1).\\
+Q13 & Net cash provided by operating activities is \$4,550 million (p. 5).\\
+Q14 & Total net debt is shown as \$(15,989) million including leases; excluding lease liabilities and including derivatives it is \$(4,115) million (p. 4).\\
+Q15 & Return on equity is 27.0\% on the disclosed before-significant-items basis (pp. 6--7).\\
+Q17--18 & Basic EPS before significant items is 113.5 cents; Group ROFE is 13.7\% using the percentage definition in note 3 (p. 6).\\\bottomrule
+\end{longtable}
+Further tests should ask for live prices, 2026 results and topics missing from this corpus; expected behaviour is to state insufficient evidence. Ambiguous profit/debt requests should trigger explicit definitions or clarification. Financial rounding should be accepted only when equivalent units, year and accounting basis are retained.
+
+\section{Completed evaluation and outstanding validation}
+\begin{longtable}{p{38mm}p{110mm}}
+\caption{Evidence register for the revised evaluation.}\\
+\toprule Item & Status\\\midrule\endfirsthead
+\toprule Item & Status\\\midrule\endhead
+40-question benchmark & Completed with answerability labels, topic groups, reference answers and relevant passages; AI-assisted, independent human review pending.\\
+Keyword/dense/hybrid comparison & Executed on the same 28 answerable questions; raw rankings, metric tables and model/runtime hashes included.\\
+Length-normalisation ablation & Executed; removing normalisation reduced NDCG@5. Original setting retained.\\
+Unsupported-query gate & Executed; zero-overlap rule rejected none of eight unsupported prompts. Not an LLM refusal score.\\
+Numerical reference checks & Seven calculations verified in code; no generated responses scored.\\
+LLM answer evaluation & Runner and blank scoring sheet supplied. Requires the team's Ollama environment and human scoring.\\
+Historical larger experiment & Raw outputs, labels and screenshots still required before its reported figures can be confirmed.\\
+Teamwork and business value & Personal reflections, mentoring/commit evidence and a user study require real team participation.\\\bottomrule
+\end{longtable}
+
+\endgroup
+\end{document}

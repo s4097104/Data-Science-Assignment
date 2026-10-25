@@ -1,0 +1,19 @@
+﻿question_id,question,question_type,expected_source_page
+Q01,What was Woolworths Group's total revenue in 2025?,direct,1
+Q02,What was Australian Food revenue in 2025?,direct,1
+Q03,What was Australian B2B revenue in 2025?,direct,1
+Q04,What was New Zealand Food revenue in 2025?,direct,1
+Q05,What was W Living revenue in 2025?,direct,1
+Q06,What was Woolworths Group's EBIT in 2025?,direct,1
+Q07,What was profit attributable to equity holders after tax in 2025?,direct,2
+Q08,What was Woolworths Group's total dividend in 2025?,direct,6
+Q09,How much was the 2025 final dividend per share?,direct,6
+Q10,Which continuing-operations segment had the highest 2025 revenue?,comparison,1
+Q11,How did 2025 total Group EBIT before significant items compare with 2024?,comparison,1
+Q12,Why should a RAG system be careful when comparing 2025 with earlier years?,inference,2
+Q13,What was Woolworths Group's net cash provided by operating activities in 2025?,direct,5
+Q14,What was total net debt in 2025?,direct,4
+Q15,What was Woolworths Group's return on equity in 2025?,direct,6
+Q16,What was the 2025 sales growth rate for continuing operations?,direct,8
+Q17,What was the 2025 basic earnings per share before significant items?,direct,6
+Q18,What was the 2025 Group ROFE?,direct,6

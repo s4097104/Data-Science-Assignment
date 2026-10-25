@@ -1,0 +1,2 @@
+PASS: corpus-wide ideal DCG penalizes omitted relevant passages.
+PASS: no-overlap query returns five zero-score passages (observed behavior; no retrieval abstention).

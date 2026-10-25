@@ -1,0 +1,12 @@
+{
+  "model": "sentence-transformers/multi-qa-MiniLM-L6-cos-v1",
+  "runtime": "ONNX CPU",
+  "ort_version": "1.31.0",
+  "pooling": "attention-mask mean then L2",
+  "max_tokens": 512,
+  "hashes": {
+    "model.onnx": "826501e8460f6e1a83fa30a9b173f051100abda5559e1352efc0e3fe3136afc2",
+    "tokenizer.json": "7fa9272f7ef1ebd1666bb3bfd9d4707660ff0076ca9d1671cd9a9c6e18e03331",
+    "config.json": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41"
+  }
+}

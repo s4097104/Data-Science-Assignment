@@ -1,0 +1,11 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+  "method": "unchanged supplied BM25; k1=1.5, b=0.75; top_k=5",
+  "sha256": {
+    "src/bm25_retriever.py": "ff1439353aff39afbef4f006ff61e7ff532e8f376ecb8ae6895bb80ef428c711",
+    "data/chunks.csv": "4cfa7361571a7fb8836720cffd9463001e2b450a7e0b53cbd9497fdbc85ef151",
+    "data/evaluation_questions.csv": "386dc831114ea78afbe5380f3ccf91255d3af0647fec846dc7df45d447b0cba0",
+    "data/F25_Five_Year_Summary.pdf": "2f21cb2f42ea1de7ecc77c3b7de5e0d7eebfaf1cdf6f39e7ac0e53db2b685e73"
+  }
+}

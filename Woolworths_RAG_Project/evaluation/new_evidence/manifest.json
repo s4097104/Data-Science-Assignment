@@ -1,0 +1,16 @@
+{
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "parameters": {
+    "BM25_k1": 1.5,
+    "BM25_b": 0.75,
+    "ablation_b": 0,
+    "TFIDF": "word unigrams+bigrams, default sklearn settings",
+    "Lexical_RRF": "equal weights, constant 60, top 5 per input"
+  },
+  "hashes": {
+    "benchmark.json": "24e3024c345560998d763c7fbc08934a94998f17d2041dd0c11aedc7c640faae",
+    "evaluate.py": "9463834978c4a0b255011abdadd91a2c1aa9e3005f138febb6096de3b43a6c17",
+    "audit_inputs/data/chunks.csv": "4cfa7361571a7fb8836720cffd9463001e2b450a7e0b53cbd9497fdbc85ef151"
+  }
+}
